@@ -34,7 +34,9 @@ export default function Caixa(props) {
 
       console.log(tabuleiro, props.posicao);
 
-      props.rodaTurno();
+      setTimeout(() => {
+        props.rodaTurno();
+      }, 3000);
     }
   }
 

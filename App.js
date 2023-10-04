@@ -1,7 +1,28 @@
 import { StatusBar } from "expo-status-bar";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  Modal,
+  TextInput,
+  Button,
+} from "react-native";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+import {
+  doc,
+  setDoc,
+  updateDoc,
+  getDoc,
+  onSnapshot,
+  getFirestore,
+} from "firebase/firestore";
+
+import firebaseApp from "./firebase";
+
+const db = getFirestore(firebaseApp);
 
 import Caixa from "./Caixa";
 
@@ -9,6 +30,26 @@ export default function App() {
   const [jogador, setJogador] = useState(1);
   const [tabuleiro, setTabuleiro] = useState([0, 0, 0, 0, 0, 0, 0, 0, 0]);
   const [vencedor, setVencedor] = useState(null);
+  const [sala, setSala] = useState(null);
+  const [exibeEntrar, setExibeEntrar] = useState(false);
+
+  useEffect(() => {
+    if (sala != null) {
+      // ler o banco a cada 2 segundos
+      // setInterval(async () => {
+
+      //   let jogo = await getDoc( doc(db, "partidas", sala) );
+      //   let atual = jogo.data()
+      //   setTabuleiro(atual.tabuleiro);
+
+      // }, 2000);
+
+      onSnapshot(doc(db, "partidas", sala), (partida) => {
+        let atual = partida.data();
+        setTabuleiro(atual.tabuleiro);
+      });
+    }
+  }, [sala]);
 
   /* posições ganhadoras
 
@@ -25,8 +66,13 @@ export default function App() {
 
   */
 
-  function turno() {
-    //let vteste = [0,0,0, 0,0,0, 0,0,0];
+  async function turno() {
+    if (sala != null) {
+      console.log(tabuleiro);
+      await updateDoc(doc(db, "partidas", sala), {
+        tabuleiro: tabuleiro,
+      });
+    }
 
     if (
       tabuleiro[0] != 0 &&
@@ -99,8 +145,53 @@ export default function App() {
     }
   }
 
+  function geradorAleatorio() {
+    const valores = "abcdefghijklmnopkxyzABC123456789";
+
+    let novo = "";
+
+    for (var i = 0; i < 6; i++) {
+      novo += valores.charAt(Math.trunc(Math.random() * 32));
+    }
+
+    return novo;
+  }
+
+  async function criarSala() {
+    setTabuleiro([0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    setJogador(1);
+    setVencedor(null);
+
+    let sala = {
+      data: new Date(),
+      tabuleiro: [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    };
+
+    const codigo = geradorAleatorio();
+    setSala(codigo);
+
+    await setDoc(doc(db, "partidas", codigo), sala);
+  }
+
+  function entrarSala(valor) {
+    setSala(valor);
+  }
+
   return (
     <View style={styles.container}>
+      <Modal visible={exibeEntrar} transparent={false} animationType="fade">
+        <View style={styles.telaEntrar}>
+          <View>
+            <TextInput
+              onChangeText={entrarSala}
+              placeholder="Digite o Codigo da Sala"
+            ></TextInput>
+
+            <Button onPress={() => setExibeEntrar(false)} title="Entrar" />
+          </View>
+        </View>
+      </Modal>
+
       {vencedor != null ? (
         <Text style={styles.infJogador}>O vencedor é o jogador {jogador} </Text>
       ) : (
@@ -109,14 +200,25 @@ export default function App() {
         </Text>
       )}
 
+      {sala != null ? <Text>Sala criada: {sala}</Text> : <Text></Text>}
+
       <Pressable
         onPress={() => {
           setTabuleiro([0, 0, 0, 0, 0, 0, 0, 0, 0]);
           setJogador(1);
           setVencedor(null);
+          setSala(null);
         }}
       >
         <Text>Novo Jogo</Text>
+      </Pressable>
+
+      <Pressable onPress={criarSala}>
+        <Text>Novo Sala</Text>
+      </Pressable>
+
+      <Pressable onPress={() => setExibeEntrar(true)}>
+        <Text>Entrar na Sala</Text>
       </Pressable>
 
       <View style={styles.tabuleiro}>
@@ -223,5 +325,10 @@ const styles = StyleSheet.create({
 
   infJogador: {
     fontSize: 22,
+  },
+  telaEntrar: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
